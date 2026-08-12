@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <title>ELON INTENSITY CALIBRATOR — Sliding Emperor Dial</title>
+  <style>
+    :root {
+      --bg: #0a0a0b;
+      --ink: #e8e6df;
+      --muted: #7a7a82;
+      --accent: #e8b84a;
+      --accent-hot: #ffd76a;
+      --x-red: #e31937;
+      --rail: #2a2a30;
+      --thumb-bg: #0a0a0b;
+      --strength: 0;
+      --stage-progress: 0;
+      --shake: 0px;
+      --glow: 0px;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; min-width: 320px; min-height: 100%;
+      background: var(--bg); color: var(--ink);
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; -webkit-tap-highlight-color: transparent; }
+    #app { min-height: 100svh; }
+    .experience {
+      position: relative; isolation: isolate;
+      display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto;
+      min-height: 100svh; overflow: hidden;
+      padding: 28px clamp(18px, 4vw, 56px) 18px;
+      background:
+        radial-gradient(ellipse at 50% 42%, rgb(232 184 74 / calc(var(--strength) * 14%)) 0%, transparent 55%),
+        radial-gradient(circle at 50% 100%, #141418 0%, var(--bg) 55%);
+    }
+    .experience::before {
+      content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
+      background: radial-gradient(circle at 50% 40%, #1a1408 0%, #0a0a0b 50%, #050506 100%);
+      opacity: calc(0.35 + var(--strength) * 0.65);
+      transition: opacity 160ms linear;
+    }
+    .experience::after {
+      content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+      background-image:
+        repeating-linear-gradient(0deg, rgb(255 255 255 / 1.4%) 0 1px, transparent 1px 3px),
+        radial-gradient(circle at 20% 15%, rgb(255 255 255 / 6%) 0 1px, transparent 1.5px);
+      background-size: auto, 8px 8px;
+      mix-blend-mode: soft-light; opacity: 0.2;
+    }
+    .particles { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .particle {
+      position: absolute; width: 2px; height: 2px; border-radius: 50%;
+      background: var(--accent); opacity: 0; box-shadow: 0 0 6px var(--accent);
+      animation: float-up linear infinite;
+    }
+    @keyframes float-up {
+      0% { transform: translateY(110%) scale(0.6); opacity: 0; }
+      15% { opacity: calc(0.12 + var(--strength) * 0.7); }
+      100% { transform: translateY(-20%) scale(1.2); opacity: 0; }
+    }
+    .masthead {
+      position: relative; z-index: 10;
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;
+    }
+    .eyebrow {
+      margin: 0 0 6px; color: var(--muted);
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+    }
+    h1 {
+      margin: 0; font-size: clamp(28px, 4.2vw, 52px); font-weight: 800;
+      letter-spacing: -0.04em; line-height: 0.95;
+      background: linear-gradient(180deg, #fff8e7 0%, var(--accent) 55%, #9a7420 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(0 0 calc(var(--strength) * 18px) rgb(232 184 74 / 35%));
+    }
+    .subtitle {
+      margin: 8px 0 0; color: var(--muted);
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    }
+    .level-meter {
+      display: grid; min-width: 118px; padding-top: 4px;
+      border-top: 1px solid rgb(232 184 74 / 35%);
+      font-family: ui-monospace, Consolas, monospace; text-align: right;
+    }
+    .level-meter span { color: var(--muted); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; }
+    .level-output {
+      margin-top: 4px; font-size: clamp(18px, 2.2vw, 26px);
+      font-variant-numeric: tabular-nums; letter-spacing: -0.03em; color: var(--accent);
+      text-shadow: 0 0 calc(var(--strength) * 20px) rgb(232 184 74 / 55%);
+    }
+    .portrait-zone {
+      position: relative; z-index: 1;
+      display: flex; min-height: 0; flex-direction: column;
+      align-items: center; justify-content: center; padding-top: 4px;
+      transform: translateX(var(--shake));
+    }
+    .stage-ghost {
+      position: absolute; z-index: -1; top: 42%; left: 50%; width: 100%; margin: 0;
+      color: var(--accent); font-size: clamp(64px, 14vw, 180px); font-weight: 900;
+      letter-spacing: -0.06em; line-height: 0.75; text-align: center; white-space: nowrap;
+      opacity: calc(0.04 + var(--strength) * 0.06);
+      transform: translate(-50%, -50%) scale(calc(0.92 + var(--strength) * 0.12));
+      pointer-events: none; user-select: none;
+    }
+    .portrait-shell {
+      position: relative;
+      width: min(46vh, 480px, 78vw); max-width: 100%; aspect-ratio: 1;
+      background: #111;
+      filter:
+        drop-shadow(0 24px 40px rgb(0 0 0 / 55%))
+        drop-shadow(0 0 calc(var(--glow)) rgb(232 184 74 / 45%));
+      transition: filter 180ms ease;
+    }
+    .portrait-shell::before {
+      content: ""; position: absolute; z-index: 3; inset: 0; pointer-events: none;
+      border: 1px solid rgb(232 184 74 / calc(18% + var(--strength) * 35%));
+      box-shadow:
+        inset 0 0 40px rgb(232 184 74 / calc(var(--strength) * 12%)),
+        0 0 calc(var(--strength) * 40px) rgb(232 184 74 / calc(var(--strength) * 18%));
+    }
+    .portrait-shell::after {
+      content: ""; position: absolute; z-index: 3; top: 50%; right: -12px; left: -12px;
+      height: 1px; pointer-events: none;
+      background: linear-gradient(90deg, var(--accent) 0 12px, transparent 12px calc(100% - 12px), var(--accent) calc(100% - 12px));
+      opacity: calc(0.3 + var(--strength) * 0.5);
+    }
+    .portrait-stack { position: absolute; inset: 0; z-index: 1; overflow: hidden; background: #0d0d10; }
+    .portrait-stack img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; opacity: 0;
+      transform: scale(calc(1.02 + var(--stage-progress) * 0.02));
+      transition: opacity 280ms ease, transform 380ms ease;
+      will-change: opacity;
+    }
+    .portrait-stack img.is-active { opacity: 1; }
+    .imperial-halo {
+      position: absolute; z-index: 0; inset: -10%; border-radius: 50%;
+      border: 1px solid rgb(232 184 74 / 45%);
+      background:
+        radial-gradient(circle, transparent 54%, rgb(232 184 74 / 14%) 54.4% 55.4%, transparent 55.8%),
+        conic-gradient(from 0deg, transparent, rgb(232 184 74 / 22%), transparent 18%, transparent 32%, rgb(232 184 74 / 16%), transparent 52%, transparent 74%, rgb(232 184 74 / 20%), transparent);
+      opacity: 0;
+      transform: rotate(calc(var(--strength) * 36deg)) scale(0.9);
+      transition: opacity 500ms ease, transform 700ms ease; pointer-events: none;
+    }
+    .experience[data-stage="4"] .imperial-halo,
+    .experience[data-stage="5"] .imperial-halo { opacity: calc(0.4 + var(--strength) * 0.5); }
+    .experience[data-stage="5"] .imperial-halo {
+      opacity: 0.88; transform: rotate(calc(var(--strength) * 48deg)) scale(1.02);
+      animation: halo-spin 12s linear infinite;
+    }
+    @keyframes halo-spin { to { transform: rotate(calc(var(--strength) * 48deg + 360deg)) scale(1.02); } }
+    .scan-grid {
+      position: absolute; z-index: 2; inset: 0; pointer-events: none;
+      background:
+        linear-gradient(90deg, transparent 49.9%, rgb(232 184 74 / 18%) 50%, transparent 50.1%),
+        linear-gradient(0deg, transparent 49.9%, rgb(232 184 74 / 12%) 50%, transparent 50.1%);
+      opacity: calc(0.18 - var(--strength) * 0.06);
+    }
+    .scanline {
+      position: absolute; z-index: 2; left: 0; right: 0; height: 2px; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgb(232 184 74 / 55%), transparent);
+      animation: scan 3.6s ease-in-out infinite;
+      opacity: calc(0.25 + var(--strength) * 0.45);
+    }
+    @keyframes scan {
+      0%, 100% { top: 8%; opacity: 0; }
+      10% { opacity: 0.7; } 90% { opacity: 0.7; } 100% { top: 92%; opacity: 0; }
+    }
+    .frame-corner { position: absolute; z-index: 4; width: 18px; height: 18px; border-color: var(--accent); opacity: calc(0.5 + var(--strength) * 0.45); }
+    .frame-corner--tl { top: -6px; left: -6px; border-top: 2px solid; border-left: 2px solid; }
+    .frame-corner--tr { top: -6px; right: -6px; border-top: 2px solid; border-right: 2px solid; }
+    .frame-corner--bl { bottom: -6px; left: -6px; border-bottom: 2px solid; border-left: 2px solid; }
+    .frame-corner--br { right: -6px; bottom: -6px; border-right: 2px solid; border-bottom: 2px solid; }
+    .load-state {
+      position: absolute; z-index: 20; inset: 0; display: grid; place-items: center; gap: 14px;
+      color: #f4f1e8; background: rgb(8 8 10 / 92%);
+      font-family: ui-monospace, Consolas, monospace; font-size: 12px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      transition: opacity 420ms ease, visibility 420ms ease;
+    }
+    .load-state[hidden] { display: none; }
+    .load-state.is-fading { opacity: 0; visibility: hidden; }
+    .load-bar { width: min(220px, 60vw); height: 2px; background: #222; overflow: hidden; }
+    .load-bar > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--x-red), var(--accent)); transition: width 80ms linear; }
+    .stage-readout {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      width: min(46vh, 480px, 78vw); align-items: baseline; margin-top: 14px; gap: 8px;
+    }
+    .stage-readout > span {
+      color: var(--muted); font-family: ui-monospace, Consolas, monospace;
+      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    }
+    .stage-index { text-align: right; }
+    .stage-name {
+      min-width: 3.5em; margin: 0; color: var(--ink);
+      font-size: clamp(26px, 4.6vh, 44px); font-weight: 800;
+      letter-spacing: -0.03em; line-height: 1; text-align: center;
+      text-shadow: 0 0 calc(var(--strength) * 28px) rgb(232 184 74 / 50%);
+      transition: color 280ms ease, transform 160ms ease;
+    }
+    .stage-name.pulse { transform: scale(1.04); color: var(--accent-hot); }
+    .experience[data-stage="5"] .stage-name { color: var(--accent-hot); }
+    .status-line {
+      margin: 8px 0 0; min-height: 1.2em; color: var(--muted);
+      font-family: ui-monospace, Consolas, monospace; font-size: 11px;
+      letter-spacing: 0.08em; text-align: center;
+    }
+    .experience[data-stage="4"] .status-line,
+    .experience[data-stage="5"] .status-line { color: var(--accent); }
+    .control-panel { --rail-inset: 14px; position: relative; z-index: 10; width: min(760px, 100%); margin: 8px auto 0; }
+    .range-wrap { position: relative; height: 52px; }
+    .fill-rail {
+      position: absolute; top: 25px; left: var(--rail-inset); right: var(--rail-inset);
+      height: 2px; background: var(--rail); pointer-events: none; overflow: hidden;
+    }
+    .fill-rail > i {
+      display: block; height: 100%; width: calc(var(--strength) * 100%);
+      background: linear-gradient(90deg, var(--x-red), var(--accent), var(--accent-hot));
+      box-shadow: 0 0 12px rgb(232 184 74 / calc(var(--strength) * 70%));
+    }
+    .tick-track {
+      position: absolute; top: 14px; right: var(--rail-inset); left: var(--rail-inset);
+      display: flex; align-items: center; justify-content: space-between;
+      height: 24px; pointer-events: none;
+    }
+    .tick {
+      display: block; width: 1px; height: 7px; background: currentColor; opacity: 0.18;
+      transition: height 120ms ease, opacity 120ms ease, background 120ms ease;
+    }
+    .tick:nth-child(6n + 1) { height: 18px; opacity: 0.45; }
+    .tick.is-active { height: 13px; background: var(--accent); opacity: 0.95; }
+    .tick.is-active:nth-child(6n + 1) { height: 24px; background: var(--accent-hot); }
+    .strength-slider {
+      position: absolute; inset: 0; width: 100%; height: 52px; margin: 0;
+      cursor: ew-resize; appearance: none; background: transparent; touch-action: none;
+    }
+    .strength-slider:disabled { cursor: wait; }
+    .strength-slider::-webkit-slider-runnable-track { height: 2px; background: transparent; }
+    .strength-slider::-webkit-slider-thumb {
+      width: 28px; height: 28px; margin-top: -13px; border: 2px solid var(--accent);
+      border-radius: 50%; appearance: none;
+      background: radial-gradient(circle, var(--x-red) 0 4px, transparent 4.5px), var(--thumb-bg);
+      box-shadow: 0 0 calc(8px + var(--strength) * 18px) rgb(232 184 74 / calc(30% + var(--strength) * 50%)), 0 6px 18px rgb(0 0 0 / 45%);
+    }
+    .strength-slider::-moz-range-track { height: 2px; background: transparent; }
+    .strength-slider::-moz-range-thumb {
+      width: 24px; height: 24px; border: 2px solid var(--accent); border-radius: 50%;
+      background: var(--x-red); box-shadow: 0 0 14px rgb(232 184 74 / 50%);
+    }
+    .strength-slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    .stage-markers { display: flex; justify-content: space-between; margin: 0; padding: 0 var(--rail-inset); list-style: none; }
+    .stage-marker {
+      width: 0; color: var(--muted); font-size: 10px; letter-spacing: 0.02em;
+      text-align: center; white-space: nowrap; transform: translateX(-50%);
+      transition: color 140ms ease, transform 140ms ease;
+    }
+    .stage-marker.is-passed { color: rgb(232 184 74 / 75%); }
+    .stage-marker.is-current { color: var(--accent-hot); font-weight: 700; transform: translate(-50%, -2px); }
+    .drag-hint {
+      margin: 12px 0 0; color: var(--muted); font-size: 11px;
+      letter-spacing: 0.14em; text-align: center; text-transform: uppercase;
+    }
+    .drag-hint span { display: inline-block; margin: 0 8px; color: var(--accent); opacity: 0.7; }
+    .footer-note {
+      position: relative; z-index: 10; display: flex; flex-wrap: wrap;
+      justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 10px;
+      border-top: 1px solid rgb(232 184 74 / 18%); color: var(--muted);
+      font-family: ui-monospace, Consolas, monospace; font-size: 9px; letter-spacing: 0.08em;
+    }
+    .footer-note a { color: rgb(232 184 74 / 75%); text-decoration: none; }
+    .footer-note a:hover { color: var(--accent-hot); text-decoration: underline; }
+    @media (max-width: 700px) {
+      .experience { padding: 18px 14px 14px; }
+      .eyebrow { max-width: 200px; font-size: 8px; line-height: 1.4; }
+      h1 { font-size: clamp(26px, 9vw, 40px); }
+      .portrait-shell, .stage-readout { width: min(80vw, 48vh, 400px); }
+      .stage-name { font-size: clamp(22px, 7vw, 34px); }
+      .stage-marker { font-size: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+      .stage-marker.is-passed, .stage-marker.is-current { background: var(--accent); }
+      .stage-marker.is-current { box-shadow: 0 0 10px var(--accent); transform: translate(-50%, -2px) scale(1.3); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+      }
+      .imperial-halo { animation: none !important; }
+      .scanline { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    (function () {
+      "use strict";
+      const STAGES = [
+        { name: "Niche Meme Lord", short: "Meme", status: "Local timeline dominance confirmed.", ghost: "MEME", src: "assets/stages/comic/01-niche-meme-lord.jpg" },
+        { name: "Tweet Storm", short: "Storm", status: "Posting velocity exceeding safe limits.", ghost: "STORM", src: "assets/stages/comic/02-tweet-storm.jpg" },
+        { name: "Mars or Bust", short: "Mars", status: "Escape velocity locked. Civilization backup online.", ghost: "MARS", src: "assets/stages/comic/03-mars-or-bust.jpg" },
+        { name: "Techno-King", short: "Techno", status: "Neural link synched. Factories chanting.", ghost: "TECH", src: "assets/stages/comic/04-techno-king.jpg" },
+        { name: "Continental Overlord", short: "Overlord", status: "Borders dissolving under soft-power gravity.", ghost: "OVER", src: "assets/stages/comic/05-continental-overlord.jpg" },
+        { name: "European Emperor", short: "Emperor", status: "Imperial concentration MAX. Crown protocol engaged.", ghost: "EMPEROR", src: "assets/stages/comic/06-european-emperor.jpg" },
+      ];
+      const MAX_LEVEL = 30;
+      const STAGE_STEP = 6;
+
+      function clamp(n) { return Math.min(MAX_LEVEL, Math.max(0, n)); }
+      function pad2(n) { return String(n).padStart(2, "0"); }
+      function getProgression(raw) {
+        const level = Math.round(clamp(raw));
+        let stageIndex = Math.floor(level / STAGE_STEP);
+        if (stageIndex >= STAGES.length) stageIndex = STAGES.length - 1;
+        const isFinal = stageIndex === STAGES.length - 1;
+        const localProgress = isFinal ? 1 : (level - stageIndex * STAGE_STEP) / STAGE_STEP;
+        return { level, stageIndex, stage: STAGES[stageIndex], localProgress, strength: level / MAX_LEVEL };
+      }
+      function createTicks() {
+        return Array.from({ length: MAX_LEVEL + 1 }, () => '<i class="tick"></i>').join("");
+      }
+      function createMarkers() {
+        return STAGES.map((s) => `<li class="stage-marker" title="${s.name}">${s.short}</li>`).join("");
+      }
+      function createParticles(count) {
+        let html = "";
+        for (let i = 0; i < count; i++) {
+          const left = (Math.random() * 100).toFixed(2);
+          const delay = (Math.random() * 6).toFixed(2);
+          const dur = (4 + Math.random() * 5).toFixed(2);
+          const size = (1 + Math.random() * 2).toFixed(1);
+          html += `<span class="particle" style="left:${left}%;animation-delay:${delay}s;animation-duration:${dur}s;width:${size}px;height:${size}px"></span>`;
+        }
+        return html;
+      }
+      function createPortraits() {
+        return STAGES.map((s, i) =>
+          `<img class="portrait-frame" data-stage="${i}" src="${s.src}" alt="${s.name}" draggable="false" />`
+        ).join("");
+      }
+
+      const root = document.getElementById("app");
+      root.innerHTML = `
+        <div class="experience" data-stage="0">
+          <div class="particles" aria-hidden="true">${createParticles(28)}</div>
+          <header class="masthead">
+            <div>
+              <p class="eyebrow">Sliding Emperor Dial · Lab Instrument v0.2</p>
+              <h1>ELON INTENSITY<br/>CALIBRATOR</h1>
+              <p class="subtitle">Imperial Concentration Matrix</p>
+            </div>
+            <div class="level-meter">
+              <span>Emperor Strength</span>
+              <div class="level-output">00 / 30</div>
+            </div>
+          </header>
+          <section class="portrait-zone">
+            <p class="stage-ghost" aria-hidden="true">MEME</p>
+            <div class="portrait-shell" role="img" aria-label="Comic imperial portrait stage">
+              <div class="imperial-halo"></div>
+              <div class="portrait-stack">${createPortraits()}</div>
+              <div class="scan-grid"></div>
+              <div class="scanline"></div>
+              <span class="frame-corner frame-corner--tl"></span>
+              <span class="frame-corner frame-corner--tr"></span>
+              <span class="frame-corner frame-corner--bl"></span>
+              <span class="frame-corner frame-corner--br"></span>
+              <div class="load-state">
+                <div>Loading continuous imperial power…</div>
+                <div class="load-bar"><i></i></div>
+              </div>
+            </div>
+            <div class="stage-readout">
+              <span>Current Status</span>
+              <h2 class="stage-name">Niche Meme Lord</h2>
+              <span class="stage-index">Stage 01 / 06</span>
+            </div>
+            <p class="status-line">Local timeline dominance confirmed.</p>
+          </section>
+          <section class="control-panel">
+            <div class="range-wrap">
+              <div class="fill-rail"><i></i></div>
+              <div class="tick-track">${createTicks()}</div>
+              <input id="strength-slider" class="strength-slider" type="range" min="0" max="30" step="1" value="0" disabled
+                aria-label="Elon intensity slider" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" />
+            </div>
+            <ol class="stage-markers">${createMarkers()}</ol>
+            <p class="drag-hint"><span>←</span> Drag to amplify imperial concentration <span>→</span></p>
+          </section>
+          <footer class="footer-note">
+            <span>Parody meme · Comic edits of public portrait · Not affiliated</span>
+            <span>Inspired by <a href="https://lichtspektrum.github.io/liang-intensity-calibrator/" target="_blank" rel="noopener noreferrer">Liang Intensity Calibrator (lichtspektrum)</a> — original parody.</span>
+          </footer>
+        </div>
+      `;
+
+      const experience = root.querySelector(".experience");
+      const slider = root.querySelector("#strength-slider");
+      const output = root.querySelector(".level-output");
+      const stageNameEl = root.querySelector(".stage-name");
+      const stageIndexEl = root.querySelector(".stage-index");
+      const stageGhost = root.querySelector(".stage-ghost");
+      const statusLine = root.querySelector(".status-line");
+      const loadState = root.querySelector(".load-state");
+      const loadBar = root.querySelector(".load-bar > i");
+      const ticks = Array.from(root.querySelectorAll(".tick"));
+      const markers = Array.from(root.querySelectorAll(".stage-marker"));
+      const frames = Array.from(root.querySelectorAll(".portrait-frame"));
+      let lastStage = -1;
+      let shakeRaf = 0;
+
+      function setLevel(raw) {
+        const state = getProgression(raw);
+        slider.value = String(state.level);
+        slider.setAttribute("aria-valuenow", String(state.level));
+        slider.setAttribute("aria-valuetext", `${state.stage.name}, level ${state.level} of ${MAX_LEVEL}`);
+        output.textContent = `${pad2(state.level)} / ${MAX_LEVEL}`;
+        stageNameEl.textContent = state.stage.name;
+        stageIndexEl.textContent = `Stage ${pad2(state.stageIndex + 1)} / 06`;
+        stageGhost.textContent = state.stage.ghost;
+        statusLine.textContent = state.stage.status;
+        experience.dataset.stage = String(state.stageIndex);
+        experience.style.setProperty("--strength", String(state.strength));
+        experience.style.setProperty("--stage-progress", String(state.localProgress));
+        experience.style.setProperty("--glow", `${8 + state.strength * 48}px`);
+        ticks.forEach((tick, i) => tick.classList.toggle("is-active", i <= state.level));
+        markers.forEach((marker, i) => {
+          marker.classList.toggle("is-current", i === state.stageIndex);
+          marker.classList.toggle("is-passed", i < state.stageIndex);
+        });
+        frames.forEach((img, i) => img.classList.toggle("is-active", i === state.stageIndex));
+        if (state.stageIndex !== lastStage) {
+          stageNameEl.classList.remove("pulse");
+          void stageNameEl.offsetWidth;
+          stageNameEl.classList.add("pulse");
+          lastStage = state.stageIndex;
+        }
+        if (state.strength > 0.72) {
+          const amp = (state.strength - 0.72) * 4;
+          cancelAnimationFrame(shakeRaf);
+          const jitter = () => {
+            const x = (Math.random() - 0.5) * amp * 2;
+            experience.style.setProperty("--shake", `${x.toFixed(2)}px`);
+            if (getProgression(Number(slider.value)).strength > 0.72) shakeRaf = requestAnimationFrame(jitter);
+            else experience.style.setProperty("--shake", "0px");
+          };
+          shakeRaf = requestAnimationFrame(jitter);
+        } else {
+          cancelAnimationFrame(shakeRaf);
+          experience.style.setProperty("--shake", "0px");
+        }
+      }
+
+      slider.addEventListener("input", () => setLevel(Number(slider.value)));
+      const __bootLevel = (() => {
+        const v = new URLSearchParams(location.search).get("level");
+        if (v == null || v === "" || Number.isNaN(Number(v))) return null;
+        return clamp(Math.round(Number(v)));
+      })();
+
+      // preload portraits then unlock
+      let loaded = 0;
+      const total = frames.length;
+      const finishLoad = () => {
+        loadBar.style.width = "100%";
+        loadState.querySelector("div").textContent = "Imperial power online";
+        setTimeout(() => {
+          loadState.classList.add("is-fading");
+          setTimeout(() => {
+            loadState.hidden = true;
+            slider.disabled = false;
+            setLevel(__bootLevel == null ? 0 : __bootLevel);
+          }, 380);
+        }, 220);
+      };
+      frames.forEach((img) => {
+        const bump = () => {
+          loaded += 1;
+          loadBar.style.width = Math.round((loaded / total) * 100) + "%";
+          if (loaded >= total) finishLoad();
+        };
+        if (img.complete && img.naturalWidth) bump();
+        else {
+          img.addEventListener("load", bump, { once: true });
+          img.addEventListener("error", bump, { once: true });
+        }
+      });
+      // safety unlock
+      setTimeout(() => { if (slider.disabled) finishLoad(); }, 4000);
+      setLevel(__bootLevel == null ? 0 : __bootLevel);
+    })();
+  </script>
+</body>
+</html>
