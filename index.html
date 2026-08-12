@@ -258,9 +258,16 @@
     .strength-slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
     .stage-markers { display: flex; justify-content: space-between; margin: 0; padding: 0 var(--rail-inset); list-style: none; }
     .stage-marker {
+      position: relative;
       width: 0; color: var(--muted); font-size: 10px; letter-spacing: 0.02em;
       text-align: center; white-space: nowrap; transform: translateX(-50%);
+      cursor: pointer;
       transition: color 140ms ease, transform 140ms ease;
+    }
+    .stage-marker:focus-visible {
+      color: var(--accent-hot);
+      outline: 1px solid var(--accent);
+      outline-offset: 6px;
     }
     .stage-marker.is-passed { color: rgb(232 184 74 / 75%); }
     .stage-marker.is-current { color: var(--accent-hot); font-weight: 700; transform: translate(-50%, -2px); }
@@ -326,7 +333,9 @@
         return Array.from({ length: MAX_LEVEL + 1 }, () => '<i class="tick"></i>').join("");
       }
       function createMarkers() {
-        return STAGES.map((s) => `<li class="stage-marker" title="${s.name}">${s.short}</li>`).join("");
+        return STAGES.map((s, i) =>
+          `<li class="stage-marker" role="button" tabindex="0" data-stage="${i}" title="${s.name}">${s.short}</li>`
+        ).join("");
       }
       function createParticles(count) {
         let html = "";
@@ -394,7 +403,7 @@
             <p class="drag-hint"><span>←</span> Drag to amplify imperial concentration <span>→</span></p>
           </section>
           <footer class="footer-note">
-            <span>Parody meme · Comic edits of public portrait · Not affiliated</span>
+            <span>Parody meme · Comic edits of public portrait · Not affiliated · Haptics via <a href="https://github.com/tijnjh/ios-haptics" target="_blank" rel="noopener noreferrer">ios-haptics</a></span>
             <span>Inspired by <a href="https://lichtspektrum.github.io/liang-intensity-calibrator/" target="_blank" rel="noopener noreferrer">Liang Intensity Calibrator (lichtspektrum)</a> — original parody.</span>
           </footer>
         </div>
@@ -412,11 +421,71 @@
       const ticks = Array.from(root.querySelectorAll(".tick"));
       const markers = Array.from(root.querySelectorAll(".stage-marker"));
       const frames = Array.from(root.querySelectorAll(".portrait-frame"));
+      const stageReadout = root.querySelector(".stage-readout");
       let lastStage = -1;
+      let lastLevel = -1;
       let shakeRaf = 0;
+      let hapticsArmed = false;
+
+      // ios-haptics (MIT) — https://github.com/tijnjh/ios-haptics
+      // Vendored inline (isIos + hapticTrigger). No build step.
+      // Native Safari switch haptics strongest on stage-marker taps;
+      // Slider hidden switch engine is best-effort within input gesture.
+      function isIos() {
+        if (typeof navigator === 'undefined')
+          return false
+
+        return (
+          /iPad|iPhone|iPod/.test(navigator.userAgent)
+          || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        )
+      }
+
+      function hapticTrigger(element) {
+        if (!element || typeof window === 'undefined') {
+          return
+        }
+
+        if (!isIos()) {
+          return
+        }
+
+        const switchEl = document.createElement('input')
+
+        switchEl.type = 'checkbox'
+        switchEl.setAttribute('switch', '')
+        switchEl.setAttribute('data-haptic-trigger', '')
+        switchEl.setAttribute('aria-hidden', 'true')
+        switchEl.tabIndex = -1
+
+        const styles = {
+          position: 'absolute',
+          inset: '0',
+          width: '100%',
+          height: '100%',
+          margin: '0',
+          opacity: '0',
+          clipPath: 'inset(0 round 999px)',
+          touchAction: 'manipulation',
+        }
+
+        Object.assign(switchEl.style, styles)
+
+        switchEl.style.setProperty('-webkit-tap-highlight-color', 'transparent')
+
+        if (getComputedStyle(element).position === 'static') {
+          element.style.position = 'relative'
+        }
+
+        element.insertAdjacentElement('beforeend', switchEl)
+      }
 
       function setLevel(raw) {
         const state = getProgression(raw);
+        const prevStage = lastStage;
+        const prevLevel = lastLevel;
+        const levelChanged = state.level !== prevLevel;
+        const stageChanged = state.stageIndex !== prevStage;
         slider.value = String(state.level);
         slider.setAttribute("aria-valuenow", String(state.level));
         slider.setAttribute("aria-valuetext", `${state.stage.name}, level ${state.level} of ${MAX_LEVEL}`);
@@ -435,12 +504,16 @@
           marker.classList.toggle("is-passed", i < state.stageIndex);
         });
         frames.forEach((img, i) => img.classList.toggle("is-active", i === state.stageIndex));
-        if (state.stageIndex !== lastStage) {
+        if (stageChanged) {
           stageNameEl.classList.remove("pulse");
           void stageNameEl.offsetWidth;
           stageNameEl.classList.add("pulse");
           lastStage = state.stageIndex;
         }
+        if (levelChanged && prevLevel !== -1) {
+          fireLevelHaptic(stageChanged && prevStage !== -1);
+        }
+        lastLevel = state.level;
         if (state.strength > 0.72) {
           const amp = (state.strength - 0.72) * 4;
           cancelAnimationFrame(shakeRaf);
@@ -456,6 +529,65 @@
           experience.style.setProperty("--shake", "0px");
         }
       }
+
+      // Hidden iOS switch engine for discrete slider steps (do NOT overlay the range input).
+      let iosSwitchEngine = null;
+      if (isIos()) {
+        iosSwitchEngine = document.createElement("input");
+        iosSwitchEngine.type = "checkbox";
+        iosSwitchEngine.setAttribute("switch", "");
+        iosSwitchEngine.setAttribute("aria-hidden", "true");
+        iosSwitchEngine.tabIndex = -1;
+        Object.assign(iosSwitchEngine.style, {
+          position: "fixed",
+          left: "-120px",
+          top: "-120px",
+          width: "1px",
+          height: "1px",
+          margin: "0",
+          opacity: "0",
+          pointerEvents: "none",
+        });
+        document.body.appendChild(iosSwitchEngine);
+      }
+
+      function pulseIosSwitch() {
+        if (!iosSwitchEngine) return;
+        try { iosSwitchEngine.click(); }
+        catch (_) { iosSwitchEngine.checked = !iosSwitchEngine.checked; }
+      }
+
+      function fireLevelHaptic(stageChanged) {
+        if (!hapticsArmed) return;
+        pulseIosSwitch();
+        if (stageChanged) navigator.vibrate?.([10, 30, 10]);
+        else navigator.vibrate?.(8);
+      }
+
+      // Stage markers: iOS overlay + click/keyboard jump to stageIndex * 6.
+      markers.forEach((marker, i) => {
+        hapticTrigger(marker);
+        const sw = marker.querySelector("input[data-haptic-trigger]");
+        if (sw) {
+          Object.assign(sw.style, {
+            inset: "auto", left: "50%", top: "50%",
+            width: "44px", height: "44px",
+            transform: "translate(-50%, -50%)", cursor: "pointer",
+          });
+          sw.addEventListener("change", () => setLevel(i * STAGE_STEP));
+        }
+        const activate = () => setLevel(i * STAGE_STEP);
+        marker.addEventListener("click", activate);
+        marker.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            activate();
+          }
+        });
+      });
+
+      // Optional extra tap target (not the range slider).
+      if (stageReadout) hapticTrigger(stageReadout);
 
       slider.addEventListener("input", () => setLevel(Number(slider.value)));
       const __bootLevel = (() => {
@@ -475,6 +607,7 @@
           setTimeout(() => {
             loadState.hidden = true;
             slider.disabled = false;
+            hapticsArmed = true;
             setLevel(__bootLevel == null ? 0 : __bootLevel);
           }, 380);
         }, 220);
